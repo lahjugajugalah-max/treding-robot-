@@ -1,18 +1,16 @@
 import time
 import requests
 
-# ========================================================
 # KONFIGURASI BOT TRADING (SMC PRO MULTI-INDICATOR M1)
-# API & CHAT_ID DARI DATA TERBARU KAMU
-# ========================================================
 TELEGRAM_TOKEN = "8661668637:AAGAhINyaA6jPGCL_xAoyxpzNXaJ9rwynTE"
 CHAT_ID = "5928694166"
 
-# Status internal untuk pelacak waktu tunggu 5 menit
+# Header agar koneksi Binance stabil
+HEADERS = {'User-Agent': 'Mozilla/5.0'}
+
 waktu_notif_terakhir = 0
 
 def kirim_notifikasi(pesan):
-    """Fungsi mengirim notifikasi ke Telegram"""
     print(f"[LOG] {pesan}")
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": pesan}
@@ -22,17 +20,16 @@ def kirim_notifikasi(pesan):
         print(f"[ERROR] Gagal kirim Telegram: {e}")
 
 def ambil_harga_live_binance(simbol="BTCUSDT"):
-    """Mengambil data harga live dari API Binance"""
     url = f"https://api.binance.com/api/v3/ticker/price?symbol={simbol}"
     try:
-        respon = requests.get(url, timeout=10).json()
+        # Menambahkan HEADERS agar tidak kena blokir
+        respon = requests.get(url, headers=HEADERS, timeout=10).json()
         return float(respon['price'])
     except Exception as e:
         print(f"[ERROR] API Binance bermasalah: {e}")
         return None
 
 def cek_struktur_pasar_pro():
-    """Mesin Analisis SMC PRO"""
     global waktu_notif_terakhir
     
     harga_sekarang = ambil_harga_live_binance("BTCUSDT")
@@ -41,13 +38,11 @@ def cek_struktur_pasar_pro():
 
     print(f"[SCAN M1] Harga Live BTC: ${harga_sekarang:,.2f}")
 
-    # Indikator simulasi
     rsi_m1 = 35.0
     support_terdekat = 60700.00
     resistance_terdekat = 61200.00
     order_block_demand_valid = 60750.00
     
-    # Kondisi Sinyal
     if (order_block_demand_valid - 30) <= harga_sekarang <= (order_block_demand_valid + 30):
         msg = f"🎯 [SMC PRO LIVE SIGNAL - M1] 🎯\n" \
               f"🔥 SETUP VALID CONFIRMED!\n" \
@@ -60,14 +55,12 @@ def cek_struktur_pasar_pro():
         time.sleep(300)
         return
 
-    # Status update rutin
     waktu_sekarang = time.time()
     if waktu_sekarang - waktu_notif_terakhir >= 300:
         msg_tunggu = f"🔄 [BOT STATUS UPDATE]\nHarga: ${harga_sekarang:,.2f}\nMenunggu konfirmasi..."
         kirim_notifikasi(msg_tunggu)
         waktu_notif_terakhir = waktu_sekarang
 
-# Loop utama
 if __name__ == "__main__":
     kirim_notifikasi("🚀 Bot SMC PRO Aktif!")
     waktu_notif_terakhir = time.time() - 300 
@@ -76,5 +69,6 @@ if __name__ == "__main__":
             cek_struktur_pasar_pro()
             time.sleep(10)
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error utama: {e}")
             time.sleep(10)
+            
