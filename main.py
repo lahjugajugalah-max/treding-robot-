@@ -8,71 +8,69 @@ HEADERS = {'User-Agent': 'Mozilla/5.0'}
 
 # State Control
 waktu_notif_terakhir = 0
+harga_10_menit_lalu = 0
+waktu_update_prediksi = 0
 
 def kirim_notifikasi(pesan):
+    print(f"[LOG] {pesan}")
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": pesan}
     try:
         requests.post(url, json=payload, timeout=10)
-    except:
-        pass
+    except Exception as e:
+        print(f"[ERROR] Gagal kirim Telegram: {e}")
 
-def ambil_data_market():
-    # Simulasi pengambilan data (Ganti dengan API Binance untuk price)
-    # Untuk SMC, kamu perlu data OHLC (Open, High, Low, Close)
-    # Contoh endpoint: https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=20
-    url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+def ambil_harga_live_binance(simbol="BTCUSDT"):
+    url = f"https://api.binance.com/api/v3/ticker/price?symbol={simbol}"
     try:
-        data = requests.get(url, headers=HEADERS, timeout=10).json()
-        return float(data['price'])
-    except:
+        respon = requests.get(url, headers=HEADERS, timeout=10).json()
+        if 'price' in respon:
+            return float(respon['price'])
+        return None
+    except Exception as e:
+        print(f"[ERROR] API Binance bermasalah: {e}")
         return None
 
-def cek_sinyal_smc(harga):
-    # LOGIKA ANALISIS (Placeholder untuk implementasi indikator)
-    # EMA 50 > EMA 200 = Bullish, EMA 50 < EMA 200 = Bearish
-    # ZigZag digunakan untuk menentukan swing High/Low
-    # Order Block (OB) dicari dari candle engulfing yang membreak structure (CHoCh)
+def cek_struktur_pasar_pro():
+    global waktu_notif_terakhir, waktu_update_prediksi, harga_10_menit_lalu
     
-    # Contoh Sinyal
-    is_ob_valid = True # Logika deteksi OB kamu
-    is_choch_valid = True # Logika deteksi CHoCh
-    
-    if is_ob_valid and is_choch_valid:
-        return {
-            "setup": "BULLISH OB BREAKOUT",
-            "entry": harga,
-            "sl": harga - 150,
-            "tp": harga + 450
-        }
-    return None
+    harga_sekarang = ambil_harga_live_binance("BTCUSDT")
+    if harga_sekarang is None:
+        return
 
-def main():
-    global waktu_notif_terakhir
-    kirim_notifikasi("🚀 Bot SMC PRO M1 Siap memantau!")
-    
-    while True:
-        harga = ambil_data_market()
-        if harga:
-            sinyal = cek_sinyal_smc(harga)
+    # 1. Logika Notifikasi Rutin 5 Menit
+    if time.time() - waktu_notif_terakhir >= 300:
+        msg = f"🔄 [BOT STATUS UPDATE]\nHarga: ${harga_sekarang:,.2f}\nStatus: Menunggu validasi CHoCh & OB..."
+        kirim_notifikasi(msg)
+        waktu_notif_terakhir = time.time()
+
+    # 2. Logika Prediksi Sinyal 10 Menit (Sesuai permintaanmu)
+    if time.time() - waktu_update_prediksi >= 600:
+        if harga_10_menit_lalu != 0:
+            prediksi = "BULLISH" if harga_sekarang > harga_10_menit_lalu else "BEARISH"
+            sl = harga_sekarang - 100 if prediksi == "BULLISH" else harga_sekarang + 100
+            tp = harga_sekarang + 300 if prediksi == "BULLISH" else harga_sekarang - 300
             
-            if sinyal:
-                msg = (f"🎯 [SMC PRO SIGNAL - M1]\n"
-                       f"Setup: {sinyal['setup']}\n"
-                       f"Entry: ${sinyal['entry']:,.2f}\n"
-                       f"SL: ${sinyal['sl']:,.2f} | TP: ${sinyal['tp']:,.2f}")
-                kirim_notifikasi(msg)
-            
-            # Status Update setiap 5 menit
-            if time.time() - waktu_notif_terakhir >= 300:
-                status = (f"🔄 [BOT STATUS M1]\n"
-                          f"Harga: ${harga:,.2f}\n"
-                          f"Status: Menunggu validasi CHoCh & OB...")
-                kirim_notifikasi(status)
-                waktu_notif_terakhir = time.time()
+            msg = (f"🔮 [PREDIKSI 10 MENIT]\n"
+                   f"Trend: {prediksi}\n"
+                   f"Entry: ${harga_sekarang:,.2f}\n"
+                   f"SL: ${sl:,.2f} | TP: ${tp:,.2f}")
+            kirim_notifikasi(msg)
         
-        time.sleep(10) # Cek tiap 10 detik
+        harga_10_menit_lalu = harga_sekarang
+        waktu_update_prediksi = time.time()
 
 if __name__ == "__main__":
-    main()
+    kirim_notifikasi("🚀 Bot SMC PRO Aktif!")
+    # Inisialisasi waktu agar notifikasi pertama tidak langsung keluar
+    waktu_notif_terakhir = time.time() - 300 
+    waktu_update_prediksi = time.time() - 600
     
+    while True:
+        try:
+            cek_struktur_pasar_pro()
+            time.sleep(10)
+        except Exception as e:
+            print(f"Error utama: {e}")
+            time.sleep(10)
+            
