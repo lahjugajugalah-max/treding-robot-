@@ -38,13 +38,17 @@ def cek_struktur_pasar_pro():
     if harga_sekarang is None:
         return
 
+    # [DEBUG] Melihat sisa waktu di log Railway
+    sisa_waktu = 600 - (time.time() - waktu_update_prediksi)
+    print(f"[DEBUG] Sisa waktu prediksi: {int(sisa_waktu)} detik | Harga: {harga_sekarang}")
+
     # 1. Logika Notifikasi Rutin 5 Menit
     if time.time() - waktu_notif_terakhir >= 300:
         msg = f"🔄 [BOT STATUS UPDATE]\nHarga: ${harga_sekarang:,.2f}\nStatus: Menunggu validasi CHoCh & OB..."
         kirim_notifikasi(msg)
         waktu_notif_terakhir = time.time()
 
-    # 2. Logika Prediksi Sinyal 10 Menit (Sesuai permintaanmu)
+    # 2. Logika Prediksi Sinyal 10 Menit
     if time.time() - waktu_update_prediksi >= 600:
         if harga_10_menit_lalu != 0:
             prediksi = "BULLISH" if harga_sekarang > harga_10_menit_lalu else "BEARISH"
@@ -62,7 +66,7 @@ def cek_struktur_pasar_pro():
 
 if __name__ == "__main__":
     kirim_notifikasi("🚀 Bot SMC PRO Aktif!")
-    # Inisialisasi waktu agar notifikasi pertama tidak langsung keluar
+    # Inisialisasi agar tidak spam saat awal
     waktu_notif_terakhir = time.time() - 300 
     waktu_update_prediksi = time.time() - 600
     
